@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neamatpur Weather</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            background-color: #f4f4f9; /* Light background color for the body */
+        }
+        h1 {
+            background-color: #4CAF50; /* Green background color */
+            color: white; /* White text color */
+            text-align: center; /* Center the text */
+            padding: 20px;
+            margin: 0;
+        }
+        .weather-day {
+            margin-bottom: 40px;
+        }
+        .weather-day h2 {
+            margin-bottom: 10px;
+        }
+        .weather-container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .weather-card {
+            border: 1px solid #ddd;
+            padding: 10px;
+            width: 150px;
+            text-align: center;
+            border-radius: 8px;
+            display: inline-block;
+            margin: 5px;
+        }
+        .weather-card img {
+            width: 50px;
+            height: 50px;
+        }
+        .weather-card h4 {
+            margin: 10px 0;
+        }
+        .weather-card p {
+            margin: 5px 0;
+        }
+        #temperature-chart {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>Neamatpur Weather</h1>
+    <div class="weather-container" id="weather-container"></div>
+    
+    <!-- Chart.js Temperature Graph -->
+    <div id="temperature-chart">
+        <canvas id="tempChart"></canvas>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <script>
+        const apiKey = '6e7cd75a83bfea338951d8838e4e2724'; // Replace with your OpenWeatherMap API key
+        const city = 'Neamatpur, In'; // Change to your desired city
+        const url = `https://api.openweathermap.org/data/2.5/forecast?q=${city}&units=metric&cnt=56&appid=${apiKey}`;
+
+        async function fetchWeatherData() {
+            try {
+                const response = await fetch(url);
+                const data = await response.json();
+                displayWeatherData(data);
+                generateTemperatureGraph(data);
+            } catch (error) {
+                console.error('Error fetching weather data:', error);
+            }
+        }
+
+        function displayWeatherData(data) {
+            const container = document.getElementById('weather-container');
+            container.innerHTML = '';
+
+            // Group the weather data by day
+            const groupedData = groupByDay(data.list);
+
+            Object.keys(groupedData).forEach((day) => {
+                const dayContainer = document.createElement('div');
+                dayContainer.classList.add('weather-day');
+                dayContainer.innerHTML = `<h2>${day}</h2>`;
+
+                groupedData[day].forEach((entry) => {
+                    const card = document.createElement('div');
+                    card.classList.add('weather-card');
+                    const date = new Date(entry.dt * 1000);
+                    const hours = date.getHours();
+                    const minutes = date.getMinutes();
+                    const period = hours >= 12 ? 'PM' : 'AM';
+                    const hours12 = hours % 12 || 12; // Convert to 12-hour format
+                    const formattedTime = `${hours12}:${minutes < 10 ? '0' + minutes : minutes} ${period}`;
+
+                    const temperature = entry.main.temp;
+                    const weatherDescription = entry.weather[0].description;
+                    const icon = entry.weather[0].icon;
+
+                    card.innerHTML = `
+                        <img src="http://openweathermap.org/img/wn/${icon}.png" alt="${weatherDescription}">
+                        <h4>${formattedTime}</h4>
+                        <p>${temperature}°C</p>
+                        <p>${weatherDescription}</p>
+                    `;
+                    dayContainer.appendChild(card);
+                });
+
+                container.appendChild(dayContainer);
+            });
+        }
+
+        function groupByDay(list) {
+            const groupedData = {};
+
+            list.forEach((entry) => {
+                const date = new Date(entry.dt * 1000);
+                const day = date.toLocaleDateString(); // Format date as 'MM/DD/YYYY'
+
+                if (!groupedData[day]) {
+                    groupedData[day] = [];
+                }
+
+                groupedData[day].push(entry);
+            });
+
+            return groupedData;
+        }
+
+        function generateTemperatureGraph(data) {
+            const temperatureData = [];
+            const labels = [];
+
+            data.list.forEach((entry) => {
+                const date = new Date(entry.dt * 1000);
+                const hours = date.getHours();
+                const formattedTime = `${hours % 12 || 12} ${hours >= 12 ? 'PM' : 'AM'}`;
+                labels.push(formattedTime);
+                temperatureData.push(entry.main.temp);
+            });
+
+            const ctx = document.getElementById('tempChart').getContext('2d');
+            const tempChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Temperature (°C)',
+                        data: temperatureData,
+                        borderColor: '#4CAF50',
+                        fill: false,
+                        tension: 0.1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Time of Day'
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Temperature (°C)'
+                            },
+                            min: Math.min(...temperatureData) - 5, // Ensure the y-axis starts from a slightly lower value
+                            max: Math.max(...temperatureData) + 5, // Ensure the y-axis ends at a slightly higher value
+                        }
+                    }
+                }
+            });
+        }
+
+        fetchWeatherData();
+    </script>
+</body>
+</html>
